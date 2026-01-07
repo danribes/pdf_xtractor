@@ -38,4 +38,7 @@ Thumbs.db
 
 # Test outputs
 output/
+test_output/
+test_*.pdf
+test_*.py
 *.log
