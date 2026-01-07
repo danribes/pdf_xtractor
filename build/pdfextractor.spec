@@ -37,7 +37,7 @@ is_mac = sys.platform == 'darwin'
 
 # Application info
 APP_NAME = 'PDF Extractor'
-APP_VERSION = '1.0.4'
+APP_VERSION = '1.0.5'
 BUNDLE_ID = 'com.pdfextractor.app'
 
 # Runtime hooks directory

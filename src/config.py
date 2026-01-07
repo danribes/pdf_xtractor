@@ -127,6 +127,6 @@ def setup_docling_cache():
 
 # Application metadata
 APP_NAME = "PDF Extractor"
-APP_VERSION = "1.0.4"
+APP_VERSION = "1.0.5"
 APP_AUTHOR = "Dan Ribes"
 APP_IDENTIFIER = "com.pdfextractor.app"

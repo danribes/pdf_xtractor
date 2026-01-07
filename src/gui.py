@@ -182,9 +182,11 @@ class MainWindow(QMainWindow):
         self.cb_excel.setChecked(True)
         self.cb_html = QCheckBox("HTML (Web view)")
         self.cb_html.setChecked(True)
+        self.cb_images = QCheckBox("Images (Figures/Pictures)")
+        self.cb_images.setChecked(True)
 
         for cb in [self.cb_json, self.cb_markdown, self.cb_csv,
-                   self.cb_excel, self.cb_html]:
+                   self.cb_excel, self.cb_html, self.cb_images]:
             options_layout.addWidget(cb)
 
         options_layout.addStretch()
@@ -309,7 +311,8 @@ class MainWindow(QMainWindow):
             markdown=self.cb_markdown.isChecked(),
             csv=self.cb_csv.isChecked(),
             excel=self.cb_excel.isChecked(),
-            html=self.cb_html.isChecked()
+            html=self.cb_html.isChecked(),
+            images=self.cb_images.isChecked()
         )
 
     def _start_processing(self):
