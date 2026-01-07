@@ -40,17 +40,14 @@ def get_models_dir() -> Path:
     """
     Get the directory for Docling model weights.
 
-    For bundled apps, models are included in the package.
-    For development, models are downloaded to user data dir.
+    Always use user data directory to avoid permission issues.
+    Models are downloaded on first run.
     """
-    if getattr(sys, 'frozen', False):
-        # Bundled app - models are in the package
-        return get_app_dir() / "models"
-    else:
-        # Development - use user cache
-        models_dir = get_data_dir() / "models"
-        models_dir.mkdir(parents=True, exist_ok=True)
-        return models_dir
+    # Always use user-writable directory for models
+    # This avoids symlink permission issues on Windows
+    models_dir = get_data_dir() / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    return models_dir
 
 
 def get_default_output_dir() -> Path:
@@ -68,17 +65,28 @@ def setup_docling_cache():
     """
     models_dir = get_models_dir()
 
+    # CRITICAL: Disable symlinks on Windows to avoid privilege errors
+    # Windows requires admin privileges to create symlinks by default
+    # Setting HF_HUB_DISABLE_SYMLINKS_WARNING suppresses the warning
+    # Setting HF_HUB_LOCAL_DIR_USE_SYMLINKS to False disables symlink creation
+    if sys.platform == "win32":
+        os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+        os.environ["HF_HUB_LOCAL_DIR_USE_SYMLINKS"] = "False"
+
     # Set Hugging Face cache directory (used by Docling for model downloads)
-    os.environ["HF_HOME"] = str(models_dir / "huggingface")
+    hf_home = models_dir / "huggingface"
+    os.environ["HF_HOME"] = str(hf_home)
+    os.environ["HF_HUB_CACHE"] = str(hf_home / "hub")
     os.environ["TRANSFORMERS_CACHE"] = str(models_dir / "transformers")
 
     # Ensure directories exist
-    (models_dir / "huggingface").mkdir(parents=True, exist_ok=True)
+    hf_home.mkdir(parents=True, exist_ok=True)
+    (hf_home / "hub").mkdir(parents=True, exist_ok=True)
     (models_dir / "transformers").mkdir(parents=True, exist_ok=True)
 
 
 # Application metadata
 APP_NAME = "PDF Extractor"
-APP_VERSION = "1.0.0"
-APP_AUTHOR = "Your Name"
-APP_IDENTIFIER = "com.yourcompany.pdfextractor"
+APP_VERSION = "1.0.2"
+APP_AUTHOR = "Dan Ribes"
+APP_IDENTIFIER = "com.pdfextractor.app"
