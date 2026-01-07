@@ -185,12 +185,17 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
 
+      - name: Rename standalone exe for clarity
+        run: |
+          mv "artifacts/windows-exe/PDF Extractor.exe" "artifacts/windows-exe/PDF_Extractor_Portable.exe" || true
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           draft: true
           generate_release_notes: true
           files: |
+            artifacts/windows-exe/PDF_Extractor_Portable.exe
             artifacts/windows-installer/*.exe
             artifacts/macos-dmg/*.dmg
             artifacts/macos-arm-dmg/*.dmg
