@@ -41,10 +41,13 @@ def get_models_dir() -> Path:
     Get the directory for Docling model weights.
 
     Always use user data directory to avoid permission issues.
-    Models are downloaded on first run.
+    Models are downloaded on first run to a user-writable location.
     """
     # Always use user-writable directory for models
-    # This avoids symlink permission issues on Windows
+    # This avoids:
+    # - Windows: symlink permission issues
+    # - macOS: read-only .app bundle issues
+    # - All: ensures models persist across app updates
     models_dir = get_data_dir() / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
     return models_dir
@@ -97,14 +100,33 @@ def setup_docling_cache():
         except (ImportError, AttributeError):
             pass
 
-    # Ensure directories exist
+    # macOS: Symlinks work fine, but ensure we're not writing to the .app bundle
+    # The models_dir is already set to ~/Library/Application Support/PDFExtractor
+    # which is user-writable and persists across app updates
+
+    # Ensure directories exist with proper permissions
     hf_home.mkdir(parents=True, exist_ok=True)
     (hf_home / "hub").mkdir(parents=True, exist_ok=True)
     (models_dir / "transformers").mkdir(parents=True, exist_ok=True)
 
+    # Verify the directory is writable
+    test_file = hf_home / ".write_test"
+    try:
+        test_file.touch()
+        test_file.unlink()
+    except (OSError, PermissionError) as e:
+        # If we can't write to the directory, fall back to temp directory
+        import tempfile
+        fallback_dir = Path(tempfile.gettempdir()) / "PDFExtractor" / "models"
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+        os.environ["HF_HOME"] = str(fallback_dir / "huggingface")
+        os.environ["HF_HUB_CACHE"] = str(fallback_dir / "huggingface" / "hub")
+        os.environ["TRANSFORMERS_CACHE"] = str(fallback_dir / "transformers")
+        print(f"Warning: Using fallback model directory: {fallback_dir}")
+
 
 # Application metadata
 APP_NAME = "PDF Extractor"
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.0.4"
 APP_AUTHOR = "Dan Ribes"
 APP_IDENTIFIER = "com.pdfextractor.app"
