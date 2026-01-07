@@ -5,6 +5,7 @@ Cross-platform desktop application for extracting content from PDF documents usi
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
+[![Build Desktop App](https://github.com/danribes/pdf_xtractor/actions/workflows/build.yml/badge.svg)](https://github.com/danribes/pdf_xtractor/actions/workflows/build.yml)
 
 ## Features
 
@@ -22,15 +23,19 @@ Cross-platform desktop application for extracting content from PDF documents usi
 
 ### Pre-built Releases
 
-Download the latest release for your platform:
+Download the latest release for your platform from the [Releases page](https://github.com/danribes/pdf_xtractor/releases):
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| Windows | `PDF_Extractor_Setup_x.x.x.exe` | Installer for Windows 10/11 |
+| Windows | `PDF_Extractor_Setup_1.0.0.exe` | Installer for Windows 10/11 |
 | macOS (Intel) | `PDF_Extractor_macOS.dmg` | For Intel Macs |
-| macOS (Apple Silicon) | `PDF_Extractor_macOS_ARM.dmg` | For M1/M2/M3 Macs |
+| macOS (Apple Silicon) | `PDF_Extractor_macOS_ARM.dmg` | For M1/M2/M3/M4 Macs |
 
 > **Note**: On first run, the app downloads AI models (~300MB). This only happens once.
+
+### Latest Build Artifacts
+
+You can also download the latest builds directly from [GitHub Actions](https://github.com/danribes/pdf_xtractor/actions/workflows/build.yml) (requires GitHub login).
 
 ## Building from Source
 
@@ -43,7 +48,7 @@ Download the latest release for your platform:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/pdf_xtractor.git
+git clone https://github.com/danribes/pdf_xtractor.git
 cd pdf_xtractor
 
 # Create virtual environment
@@ -109,10 +114,10 @@ This increases the app size by ~300MB but allows fully offline usage.
 ```
 pdf_xtractor/
 ├── src/
-│   ├── main.py          # Application entry point
-│   ├── gui.py           # PySide6 desktop interface
-│   ├── converter.py     # Docling processing logic
-│   └── config.py        # Configuration management
+│   ├── main.py              # Application entry point
+│   ├── gui.py               # PySide6 desktop interface
+│   ├── converter.py         # Docling processing logic
+│   └── config.py            # Configuration management
 ├── build/
 │   ├── pdfextractor.spec    # PyInstaller configuration
 │   ├── installer_windows.iss # Inno Setup script
@@ -123,12 +128,12 @@ pdf_xtractor/
 │   ├── download_models.py   # Pre-download AI models
 │   └── create_icons.py      # Generate app icons
 ├── assets/
-│   ├── icon.ico         # Windows icon
-│   ├── icon.icns        # macOS icon
-│   └── icon.png         # Reference icon
+│   ├── icon.ico             # Windows icon
+│   ├── icon.icns            # macOS icon
+│   └── icon.png             # Reference icon
 ├── .github/
 │   └── workflows/
-│       └── build.yml    # CI/CD for automated builds
+│       └── build.yml        # CI/CD for automated builds
 ├── requirements.txt
 └── README.md
 ```
@@ -182,6 +187,8 @@ The project includes automated builds via GitHub Actions. To create a release:
 2. Push the tag: `git push origin v1.0.0`
 3. GitHub Actions will build for all platforms
 4. Download artifacts from the draft release
+
+You can also manually trigger a build from the [Actions tab](https://github.com/danribes/pdf_xtractor/actions/workflows/build.yml).
 
 ## Troubleshooting
 
