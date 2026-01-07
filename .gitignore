@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+.env/
+
+# Distribution / packaging
+dist/
+*.egg-info/
+*.egg
+
+# PyInstaller build output (but keep build/ config files)
+build/*.bak
+build/PDF*/
+
+# PyInstaller
+*.manifest
+*.spec.bak
+
+# Models (large files - download separately)
+models/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+output/
+*.log

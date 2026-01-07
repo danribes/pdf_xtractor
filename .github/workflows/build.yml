@@ -1,0 +1,196 @@
+name: Build Desktop App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  APP_NAME: "PDF Extractor"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: |
+          pyinstaller build/pdfextractor.spec --clean --noconfirm
+
+      - name: Create installer with Inno Setup
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.4
+        with:
+          path: build/installer_windows.iss
+          options: /O"dist"
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/PDF Extractor.exe
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/PDF_Extractor_Setup_*.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Create macOS icons
+        run: |
+          # Convert iconset to icns if needed
+          if [ -d "assets/icon.iconset" ]; then
+            iconutil -c icns assets/icon.iconset -o assets/icon.icns
+          fi
+
+      - name: Build macOS app
+        run: |
+          pyinstaller build/pdfextractor.spec --clean --noconfirm
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg || true
+
+          # Create DMG
+          create-dmg \
+            --volname "PDF Extractor" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "PDF Extractor.app" 150 190 \
+            --hide-extension "PDF Extractor.app" \
+            --app-drop-link 450 185 \
+            "dist/PDF_Extractor_macOS.dmg" \
+            "dist/PDF Extractor.app" || \
+          hdiutil create -volname "PDF Extractor" \
+            -srcfolder "dist/PDF Extractor.app" \
+            -ov -format UDZO \
+            "dist/PDF_Extractor_macOS.dmg"
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: dist/PDF Extractor.app
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/PDF_Extractor_macOS.dmg
+
+  build-macos-arm:
+    runs-on: macos-14  # Apple Silicon runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Create macOS icons
+        run: |
+          if [ -d "assets/icon.iconset" ]; then
+            iconutil -c icns assets/icon.iconset -o assets/icon.icns
+          fi
+
+      - name: Build macOS ARM app
+        run: |
+          pyinstaller build/pdfextractor.spec --clean --noconfirm
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg || true
+
+          create-dmg \
+            --volname "PDF Extractor" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "PDF Extractor.app" 150 190 \
+            --hide-extension "PDF Extractor.app" \
+            --app-drop-link 450 185 \
+            "dist/PDF_Extractor_macOS_ARM.dmg" \
+            "dist/PDF Extractor.app" || \
+          hdiutil create -volname "PDF Extractor" \
+            -srcfolder "dist/PDF Extractor.app" \
+            -ov -format UDZO \
+            "dist/PDF_Extractor_macOS_ARM.dmg"
+
+      - name: Upload macOS ARM DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm-dmg
+          path: dist/PDF_Extractor_macOS_ARM.dmg
+
+  create-release:
+    needs: [build-windows, build-macos, build-macos-arm]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/windows-installer/*.exe
+            artifacts/macos-dmg/*.dmg
+            artifacts/macos-arm-dmg/*.dmg
