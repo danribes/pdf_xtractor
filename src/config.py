@@ -65,19 +65,37 @@ def setup_docling_cache():
     """
     models_dir = get_models_dir()
 
-    # CRITICAL: Disable symlinks on Windows to avoid privilege errors
-    # Windows requires admin privileges to create symlinks by default
-    # Setting HF_HUB_DISABLE_SYMLINKS_WARNING suppresses the warning
-    # Setting HF_HUB_LOCAL_DIR_USE_SYMLINKS to False disables symlink creation
-    if sys.platform == "win32":
-        os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
-        os.environ["HF_HUB_LOCAL_DIR_USE_SYMLINKS"] = "False"
-
-    # Set Hugging Face cache directory (used by Docling for model downloads)
+    # Set Hugging Face cache directory FIRST (before any HF imports)
     hf_home = models_dir / "huggingface"
     os.environ["HF_HOME"] = str(hf_home)
     os.environ["HF_HUB_CACHE"] = str(hf_home / "hub")
+    os.environ["HUGGINGFACE_HUB_CACHE"] = str(hf_home / "hub")
     os.environ["TRANSFORMERS_CACHE"] = str(models_dir / "transformers")
+
+    # CRITICAL: Disable symlinks on Windows to avoid privilege errors
+    # Windows requires admin privileges to create symlinks by default
+    # This causes "[WinError 1314] A required privilege is not held by the client"
+    if sys.platform == "win32":
+        # Environment variables for huggingface_hub
+        os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+        os.environ["HF_HUB_LOCAL_DIR_USE_SYMLINKS"] = "False"
+
+        # Also patch the huggingface_hub constants directly
+        try:
+            import huggingface_hub.constants as hf_constants
+            # Force disable symlinks at the module level
+            if hasattr(hf_constants, 'HF_HUB_LOCAL_DIR_USE_SYMLINKS'):
+                hf_constants.HF_HUB_LOCAL_DIR_USE_SYMLINKS = False
+        except ImportError:
+            pass
+
+        try:
+            # Patch the file_download module if available
+            from huggingface_hub import file_download
+            if hasattr(file_download, 'HF_HUB_LOCAL_DIR_USE_SYMLINKS'):
+                file_download.HF_HUB_LOCAL_DIR_USE_SYMLINKS = False
+        except (ImportError, AttributeError):
+            pass
 
     # Ensure directories exist
     hf_home.mkdir(parents=True, exist_ok=True)
@@ -87,6 +105,6 @@ def setup_docling_cache():
 
 # Application metadata
 APP_NAME = "PDF Extractor"
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 APP_AUTHOR = "Dan Ribes"
 APP_IDENTIFIER = "com.pdfextractor.app"

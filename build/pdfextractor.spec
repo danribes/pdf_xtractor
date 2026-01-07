@@ -37,8 +37,11 @@ is_mac = sys.platform == 'darwin'
 
 # Application info
 APP_NAME = 'PDF Extractor'
-APP_VERSION = '1.0.0'
+APP_VERSION = '1.0.3'
 BUNDLE_ID = 'com.pdfextractor.app'
+
+# Runtime hooks directory
+HOOKS_DIR = ROOT_DIR / 'build' / 'hooks'
 
 # Collect all required data files
 datas = []
@@ -166,6 +169,14 @@ excludes = [
     'docutils',
 ]
 
+# Runtime hooks - these run BEFORE the main script
+runtime_hooks_list = []
+if is_windows:
+    # Add hook to disable HF symlinks on Windows
+    runtime_hook_path = HOOKS_DIR / 'runtime_hook_hf_symlinks.py'
+    if runtime_hook_path.exists():
+        runtime_hooks_list.append(str(runtime_hook_path))
+
 # Analysis
 a = Analysis(
     [str(SRC_DIR / 'main.py')],
@@ -175,7 +186,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[str(ROOT_DIR / 'build' / 'hooks')],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=runtime_hooks_list,
     excludes=excludes,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
