@@ -1,3 +1,0 @@
-CPU.,Thread budget.,native backend.TTS,native backend.Pages/s,native backend.Mem,pypdfium backend.TTS,pypdfium backend.Pages/s,pypdfium backend.Mem
-Apple M3 Max (16 cores),4 16,177 s 167 s,1.27 1.34,6.20 GB,103 s 92 s,2.18 2.45,2.56 GB
-Intel(R) Xeon E5-2690,4 16,375 s 244 s,0.60 0.92,6.16 GB,239 s 143 s,0.94 1.57,2.42 GB
