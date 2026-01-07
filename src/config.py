@@ -5,11 +5,58 @@ Handles:
 - Model paths and bundling
 - Application settings
 - Cross-platform path resolution
+- Windows symlink workaround
 """
 
 import os
 import sys
+import shutil
 from pathlib import Path
+
+
+def _patch_symlinks_for_windows():
+    """
+    Monkey-patch os.symlink to use file copy on Windows.
+
+    This is necessary because Windows requires admin privileges to create symlinks,
+    which causes [WinError 1314] for normal users. HuggingFace Hub uses symlinks
+    extensively in its caching mechanism.
+    """
+    if sys.platform != "win32":
+        return
+
+    original_symlink = os.symlink
+
+    def symlink_or_copy(src, dst, target_is_directory=False, *, dir_fd=None):
+        """Replace symlink with copy on Windows to avoid privilege errors."""
+        try:
+            # First try the original symlink (works if user has privileges)
+            original_symlink(src, dst, target_is_directory, dir_fd=dir_fd)
+        except OSError as e:
+            if e.winerror == 1314:  # ERROR_PRIVILEGE_NOT_HELD
+                # Fall back to copying the file/directory
+                src_path = Path(src) if not os.path.isabs(src) else Path(src)
+                dst_path = Path(dst)
+
+                # Handle relative symlinks (HuggingFace uses these)
+                if not src_path.is_absolute():
+                    src_path = dst_path.parent / src_path
+
+                try:
+                    if src_path.is_dir():
+                        if dst_path.exists():
+                            shutil.rmtree(dst_path)
+                        shutil.copytree(src_path, dst_path)
+                    else:
+                        dst_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src_path, dst_path)
+                except Exception:
+                    # If copy also fails, raise the original error
+                    raise e
+            else:
+                raise
+
+    os.symlink = symlink_or_copy
 
 
 def get_app_dir() -> Path:
@@ -66,43 +113,22 @@ def setup_docling_cache():
 
     Call this before initializing DocumentConverter.
     """
+    # FIRST: Patch symlinks on Windows (must happen before any HF imports)
+    _patch_symlinks_for_windows()
+
     models_dir = get_models_dir()
 
-    # Set Hugging Face cache directory FIRST (before any HF imports)
+    # Set Hugging Face cache directory (before any HF imports)
     hf_home = models_dir / "huggingface"
     os.environ["HF_HOME"] = str(hf_home)
     os.environ["HF_HUB_CACHE"] = str(hf_home / "hub")
     os.environ["HUGGINGFACE_HUB_CACHE"] = str(hf_home / "hub")
     os.environ["TRANSFORMERS_CACHE"] = str(models_dir / "transformers")
 
-    # CRITICAL: Disable symlinks on Windows to avoid privilege errors
-    # Windows requires admin privileges to create symlinks by default
-    # This causes "[WinError 1314] A required privilege is not held by the client"
+    # Additional Windows symlink environment variables (belt and suspenders)
     if sys.platform == "win32":
-        # Environment variables for huggingface_hub
         os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
         os.environ["HF_HUB_LOCAL_DIR_USE_SYMLINKS"] = "False"
-
-        # Also patch the huggingface_hub constants directly
-        try:
-            import huggingface_hub.constants as hf_constants
-            # Force disable symlinks at the module level
-            if hasattr(hf_constants, 'HF_HUB_LOCAL_DIR_USE_SYMLINKS'):
-                hf_constants.HF_HUB_LOCAL_DIR_USE_SYMLINKS = False
-        except ImportError:
-            pass
-
-        try:
-            # Patch the file_download module if available
-            from huggingface_hub import file_download
-            if hasattr(file_download, 'HF_HUB_LOCAL_DIR_USE_SYMLINKS'):
-                file_download.HF_HUB_LOCAL_DIR_USE_SYMLINKS = False
-        except (ImportError, AttributeError):
-            pass
-
-    # macOS: Symlinks work fine, but ensure we're not writing to the .app bundle
-    # The models_dir is already set to ~/Library/Application Support/PDFExtractor
-    # which is user-writable and persists across app updates
 
     # Ensure directories exist with proper permissions
     hf_home.mkdir(parents=True, exist_ok=True)
@@ -127,6 +153,6 @@ def setup_docling_cache():
 
 # Application metadata
 APP_NAME = "PDF Extractor"
-APP_VERSION = "1.0.5"
+APP_VERSION = "1.0.6"
 APP_AUTHOR = "Dan Ribes"
 APP_IDENTIFIER = "com.pdfextractor.app"

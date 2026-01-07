@@ -8,7 +8,7 @@
 ;   Output: dist/PDF_Extractor_Setup.exe
 
 #define MyAppName "PDF Extractor"
-#define MyAppVersion "1.0.5"
+#define MyAppVersion "1.0.6"
 #define MyAppPublisher "Dan Ribes"
 #define MyAppURL "https://github.com/danribes/pdf_xtractor"
 #define MyAppExeName "PDF Extractor.exe"
