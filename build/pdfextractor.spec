@@ -20,7 +20,7 @@ For offline distribution (with bundled models):
 import sys
 import os
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 block_cipher = None
 
@@ -42,6 +42,35 @@ BUNDLE_ID = 'com.pdfextractor.app'
 
 # Collect all required data files
 datas = []
+
+# CRITICAL: Copy package metadata for packages that use importlib.metadata
+# This fixes "PackageNotFoundError: No package metadata" errors
+datas += copy_metadata('docling')
+datas += copy_metadata('docling_core')
+datas += copy_metadata('docling_ibm_models')
+datas += copy_metadata('docling_parse')
+datas += copy_metadata('transformers')
+datas += copy_metadata('torch')
+datas += copy_metadata('torchvision')
+datas += copy_metadata('huggingface_hub')
+datas += copy_metadata('safetensors')
+datas += copy_metadata('tokenizers')
+datas += copy_metadata('accelerate')
+datas += copy_metadata('rapidocr')
+datas += copy_metadata('pydantic')
+datas += copy_metadata('pydantic_core')
+datas += copy_metadata('pandas')
+datas += copy_metadata('numpy')
+datas += copy_metadata('pillow')
+datas += copy_metadata('opencv-python')
+datas += copy_metadata('filelock')
+datas += copy_metadata('fsspec')
+datas += copy_metadata('requests')
+datas += copy_metadata('tqdm')
+datas += copy_metadata('pyyaml')
+datas += copy_metadata('omegaconf')
+datas += copy_metadata('packaging')
+datas += copy_metadata('regex')
 
 # Docling models and data
 datas += collect_data_files('docling')
@@ -112,10 +141,16 @@ hiddenimports = [
     'tqdm',
     'yaml',
     'omegaconf',
+
+    # importlib for metadata access
+    'importlib',
+    'importlib.metadata',
+    'importlib.resources',
 ]
 
 # Collect all submodules for complex packages
 hiddenimports += collect_submodules('docling')
+hiddenimports += collect_submodules('docling_core')
 hiddenimports += collect_submodules('transformers')
 hiddenimports += collect_submodules('torch')
 
