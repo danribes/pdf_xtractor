@@ -8,7 +8,7 @@
 ;   Output: dist/PDF_Extractor_Setup.exe
 
 #define MyAppName "PDF Extractor"
-#define MyAppVersion "1.0.8"
+#define MyAppVersion "1.0.10"
 #define MyAppPublisher "Dan Ribes"
 #define MyAppURL "https://github.com/danribes/pdf_xtractor"
 #define MyAppExeName "PDF Extractor.exe"
@@ -53,11 +53,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
 
 [Files]
-; Main executable
-Source: "..\dist\PDF Extractor.exe"; DestDir: "{app}"; Flags: ignoreversion
-
-; If using folder mode (not single file), include all files:
-; Source: "..\dist\PDF Extractor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Folder mode - include all files from PyInstaller output
+Source: "..\dist\PDF Extractor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
