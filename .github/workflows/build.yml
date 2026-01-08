@@ -185,9 +185,11 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
 
-      - name: Rename standalone exe for clarity
+      - name: Create portable zip
         run: |
-          mv "artifacts/windows-exe/PDF Extractor.exe" "artifacts/windows-exe/PDF_Extractor_Portable.exe" || true
+          cd "artifacts/windows-exe"
+          mv "PDF Extractor.exe" "PDF_Extractor_Portable.exe" || true
+          zip -9 "PDF_Extractor_Portable.zip" "PDF_Extractor_Portable.exe"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -195,7 +197,7 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            artifacts/windows-exe/PDF_Extractor_Portable.exe
+            artifacts/windows-exe/PDF_Extractor_Portable.zip
             artifacts/windows-installer/*.exe
             artifacts/macos-dmg/*.dmg
             artifacts/macos-arm-dmg/*.dmg
