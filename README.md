@@ -21,21 +21,49 @@ Cross-platform desktop application for extracting content from PDF documents usi
 
 ## Download
 
-### Pre-built Releases
+Download the latest release for your platform from the [Releases page](https://github.com/danribes/pdf_xtractor/releases/latest).
 
-Download the latest release for your platform from the [Releases page](https://github.com/danribes/pdf_xtractor/releases):
-
-| Platform | Download | Notes |
-|----------|----------|-------|
-| Windows | `PDF_Extractor_Setup_1.0.0.exe` | Installer for Windows 10/11 |
-| macOS (Intel) | `PDF_Extractor_macOS.dmg` | For Intel Macs |
+| Platform | File | Description |
+|----------|------|-------------|
+| Windows (Installer) | `PDF_Extractor_Setup_x.x.x.exe` | Standard Windows installer |
+| Windows (Portable) | `PDF_Extractor_Portable.zip` | No installation required |
+| macOS (Intel) | `PDF_Extractor_macOS.dmg` | For Intel-based Macs |
 | macOS (Apple Silicon) | `PDF_Extractor_macOS_ARM.dmg` | For M1/M2/M3/M4 Macs |
 
 > **Note**: On first run, the app downloads AI models (~300MB). This only happens once.
 
-### Latest Build Artifacts
+---
 
-You can also download the latest builds directly from [GitHub Actions](https://github.com/danribes/pdf_xtractor/actions/workflows/build.yml) (requires GitHub login).
+## Installation
+
+### Windows - Installer (Recommended)
+
+1. Download `PDF_Extractor_Setup_x.x.x.exe` from the [latest release](https://github.com/danribes/pdf_xtractor/releases/latest)
+2. Run the installer and follow the setup wizard
+3. Launch **PDF Extractor** from the Start Menu or desktop shortcut
+
+### Windows - Portable Version
+
+The portable version requires no installation and can run from any folder or USB drive.
+
+1. Download `PDF_Extractor_Portable.zip` from the [latest release](https://github.com/danribes/pdf_xtractor/releases/latest)
+2. Extract the zip file to any folder (e.g., `C:\Apps\PDF Extractor\`)
+3. Double-click `PDF Extractor.exe` to run the application
+
+> **Important**: Keep the `_internal` folder in the same location as `PDF Extractor.exe` - the application needs it to run.
+
+### macOS
+
+1. Download the appropriate DMG for your Mac:
+   - **Intel Macs**: `PDF_Extractor_macOS.dmg`
+   - **Apple Silicon (M1/M2/M3/M4)**: `PDF_Extractor_macOS_ARM.dmg`
+2. Open the DMG file
+3. Drag **PDF Extractor** to your Applications folder
+4. Launch from Applications or Spotlight
+
+> **Note**: If you see "App is damaged" or "unidentified developer" warning, see [Troubleshooting](#troubleshooting) below.
+
+---
 
 ## Building from Source
 
