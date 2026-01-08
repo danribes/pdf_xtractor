@@ -48,8 +48,9 @@ class ProcessingWorker(QThread):
 
 
 class DropZone(QFrame):
-    """Drag-and-drop zone for PDF files."""
+    """Drag-and-drop zone for PDF files and folders."""
     files_dropped = Signal(list)
+    folder_dropped = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -67,7 +68,7 @@ class DropZone(QFrame):
         self.icon_label.setFont(QFont("Segoe UI Emoji", 48))
         self.icon_label.setAlignment(Qt.AlignCenter)
 
-        self.text_label = QLabel("Drag & Drop PDF files here\nor click to browse")
+        self.text_label = QLabel("Drag & Drop PDF files or folders here\nor click to browse")
         self.text_label.setAlignment(Qt.AlignCenter)
         self.text_label.setFont(QFont("Segoe UI", 12))
 
@@ -105,10 +106,13 @@ class DropZone(QFrame):
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             urls = event.mimeData().urls()
-            if any(url.toLocalFile().lower().endswith('.pdf') for url in urls):
-                event.acceptProposedAction()
-                self._update_style(True)
-                return
+            # Accept if any URL is a PDF file or a directory
+            for url in urls:
+                path = url.toLocalFile()
+                if path.lower().endswith('.pdf') or Path(path).is_dir():
+                    event.acceptProposedAction()
+                    self._update_style(True)
+                    return
         event.ignore()
 
     def dragLeaveEvent(self, event):
@@ -117,10 +121,16 @@ class DropZone(QFrame):
     def dropEvent(self, event: QDropEvent):
         self._update_style(False)
         files = []
+        folders = []
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
-            if file_path.lower().endswith('.pdf'):
+            if Path(file_path).is_dir():
+                folders.append(file_path)
+            elif file_path.lower().endswith('.pdf'):
                 files.append(file_path)
+        # Emit folders first, then files
+        for folder in folders:
+            self.folder_dropped.emit(folder)
         if files:
             self.files_dropped.emit(files)
 
@@ -190,9 +200,14 @@ class MainWindow(QMainWindow):
         self.cb_html.setChecked(True)
         self.cb_images = QCheckBox("Images (Figures/Pictures)")
         self.cb_images.setChecked(True)
+        self.cb_extract_values = QCheckBox("Extract Values (if no tables)")
+        self.cb_extract_values.setChecked(True)
+        self.cb_extract_values.setToolTip(
+            "When no tables are found, extract and tag numeric values from text"
+        )
 
         for cb in [self.cb_json, self.cb_markdown, self.cb_csv,
-                   self.cb_excel, self.cb_html, self.cb_images]:
+                   self.cb_excel, self.cb_html, self.cb_images, self.cb_extract_values]:
             options_layout.addWidget(cb)
 
         options_layout.addStretch()
@@ -204,6 +219,19 @@ class MainWindow(QMainWindow):
         self.file_list = QListWidget()
         self.file_list.setMinimumWidth(300)
         queue_layout.addWidget(self.file_list)
+
+        # Add files/folder buttons
+        add_btn_layout = QHBoxLayout()
+        self.btn_add_files = QPushButton("Add Files...")
+        self.btn_add_folder = QPushButton("Add Folder...")
+        add_btn_layout.addWidget(self.btn_add_files)
+        add_btn_layout.addWidget(self.btn_add_folder)
+        queue_layout.addLayout(add_btn_layout)
+
+        # Include subfolders option
+        self.cb_subfolders = QCheckBox("Include subfolders when adding folder")
+        self.cb_subfolders.setChecked(True)
+        queue_layout.addWidget(self.cb_subfolders)
 
         btn_layout = QHBoxLayout()
         self.btn_clear = QPushButton("Clear")
@@ -271,6 +299,9 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self):
         self.drop_zone.files_dropped.connect(self._add_files)
+        self.drop_zone.folder_dropped.connect(self._add_folder)
+        self.btn_add_files.clicked.connect(self._browse_files)
+        self.btn_add_folder.clicked.connect(self._browse_input_folder)
         self.btn_clear.clicked.connect(self._clear_files)
         self.btn_remove.clicked.connect(self._remove_selected)
         self.btn_browse.clicked.connect(self._browse_folder)
@@ -299,6 +330,46 @@ class MainWindow(QMainWindow):
             self.file_list.takeItem(self.file_list.row(item))
         self._update_process_button()
 
+    def _browse_files(self):
+        """Open file dialog to select multiple PDF files."""
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "Select PDF Files", "",
+            "PDF Files (*.pdf);;All Files (*)"
+        )
+        if files:
+            self._add_files(files)
+
+    def _browse_input_folder(self):
+        """Open folder dialog to select a folder containing PDFs."""
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Folder with PDF Files", ""
+        )
+        if folder:
+            self._add_folder(folder)
+
+    def _add_folder(self, folder_path: str):
+        """Scan folder for PDF files and add them to the queue."""
+        folder = Path(folder_path)
+        if not folder.is_dir():
+            return
+
+        if self.cb_subfolders.isChecked():
+            pdf_files = list(folder.rglob("*.pdf"))
+        else:
+            pdf_files = list(folder.glob("*.pdf"))
+
+        # Sort files by name for consistent ordering
+        pdf_files.sort(key=lambda p: p.name.lower())
+
+        if pdf_files:
+            self._add_files([str(f) for f in pdf_files])
+            self.status_label.setText(f"Added {len(pdf_files)} PDF files from folder")
+        else:
+            QMessageBox.information(
+                self, "No PDFs Found",
+                f"No PDF files found in the selected folder."
+            )
+
     def _browse_folder(self):
         folder = QFileDialog.getExistingDirectory(
             self, "Select Output Folder", self.output_folder
@@ -319,7 +390,8 @@ class MainWindow(QMainWindow):
             csv=self.cb_csv.isChecked(),
             excel=self.cb_excel.isChecked(),
             html=self.cb_html.isChecked(),
-            images=self.cb_images.isChecked()
+            images=self.cb_images.isChecked(),
+            extract_values=self.cb_extract_values.isChecked()
         )
 
     def _start_processing(self):
@@ -378,6 +450,8 @@ class MainWindow(QMainWindow):
     def _set_processing_state(self, processing: bool):
         self.btn_process.setEnabled(not processing)
         self.drop_zone.setEnabled(not processing)
+        self.btn_add_files.setEnabled(not processing)
+        self.btn_add_folder.setEnabled(not processing)
         self.btn_clear.setEnabled(not processing)
         self.btn_remove.setEnabled(not processing)
 

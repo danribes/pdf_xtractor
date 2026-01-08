@@ -10,9 +10,10 @@ This module handles document conversion and exports to various formats:
 """
 
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 import json
+import re
 
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.base_models import InputFormat
@@ -33,6 +34,17 @@ class ExportOptions:
     excel: bool = True
     html: bool = True
     images: bool = True  # Extract pictures/figures as image files
+    extract_values: bool = True  # Extract numeric values when no tables found
+
+
+@dataclass
+class ExtractedValue:
+    """A numeric value extracted from text with context."""
+    value: str
+    numeric_value: float
+    tag: str
+    context: str
+    confidence: str  # "high", "medium", "low"
 
 
 @dataclass
@@ -44,6 +56,7 @@ class ProcessingResult:
     table_count: int = 0
     page_count: int = 0
     picture_count: int = 0
+    extracted_values_count: int = 0
 
 
 class PDFProcessor:
@@ -91,6 +104,117 @@ class PDFProcessor:
         pipeline_options.images_scale = 2.0  # Higher resolution for better quality
 
         return pipeline_options
+
+    def _extract_numeric_values(self, text: str) -> list[ExtractedValue]:
+        """
+        Extract numeric values from text and tag them based on context.
+
+        Uses pattern matching and contextual analysis to identify and
+        categorize numbers found in the document text.
+        """
+        extracted = []
+
+        # Patterns for different numeric formats
+        patterns = [
+            # Currency with symbol prefix: $1,234.56 or €1.234,56
+            (r'[\$\€\£\¥]\s*[\d,\.]+(?:\.\d{2})?', 'currency', 'high'),
+            # Currency with code: USD 1,234.56 or 1,234.56 USD
+            (r'(?:USD|EUR|GBP|JPY|CNY)\s*[\d,\.]+|[\d,\.]+\s*(?:USD|EUR|GBP|JPY|CNY)', 'currency', 'high'),
+            # Percentage: 12.5% or 12,5%
+            (r'[\d,\.]+\s*%', 'percentage', 'high'),
+            # Date patterns: 2024-01-15, 01/15/2024, 15-Jan-2024
+            (r'\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b', 'date', 'high'),
+            (r'\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b', 'date', 'medium'),
+            # Year: standalone 4-digit year
+            (r'\b(?:19|20)\d{2}\b', 'year', 'medium'),
+            # Phone numbers
+            (r'\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b', 'phone', 'high'),
+            # Decimal numbers with thousands separators: 1,234,567.89
+            (r'\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b', 'quantity', 'medium'),
+            # Simple decimals: 123.45
+            (r'\b\d+\.\d+\b', 'decimal', 'medium'),
+            # Integers
+            (r'\b\d+\b', 'integer', 'low'),
+        ]
+
+        # Context keywords for better tagging
+        context_tags = {
+            'price': ['price', 'cost', 'fee', 'charge', 'amount', 'total', 'subtotal', 'payment', 'paid'],
+            'quantity': ['qty', 'quantity', 'count', 'number', 'units', 'items', 'pieces', 'pcs'],
+            'percentage': ['percent', 'rate', 'ratio', 'discount', 'tax', 'vat', 'interest'],
+            'date': ['date', 'dated', 'issued', 'due', 'expires', 'valid', 'from', 'to', 'until'],
+            'id': ['id', 'number', 'no', 'ref', 'reference', 'code', 'invoice', 'order', 'account'],
+            'measurement': ['kg', 'lb', 'oz', 'g', 'mg', 'km', 'mi', 'cm', 'mm', 'm', 'ft', 'in', 'l', 'ml', 'gal'],
+            'temperature': ['°c', '°f', 'celsius', 'fahrenheit', 'temp', 'temperature'],
+            'dimension': ['width', 'height', 'length', 'size', 'dimension', 'area', 'volume'],
+            'time': ['hour', 'minute', 'second', 'hr', 'min', 'sec', 'am', 'pm'],
+            'age': ['age', 'years old', 'year old', 'yo'],
+            'score': ['score', 'rating', 'grade', 'points', 'marks'],
+        }
+
+        seen_values = set()  # Avoid duplicates
+
+        for pattern, default_tag, confidence in patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                value_str = match.group()
+
+                # Skip if we've already captured this exact value at this position
+                value_key = (match.start(), value_str)
+                if value_key in seen_values:
+                    continue
+                seen_values.add(value_key)
+
+                # Get surrounding context (50 chars before and after)
+                start = max(0, match.start() - 50)
+                end = min(len(text), match.end() + 50)
+                context = text[start:end].replace('\n', ' ').strip()
+
+                # Try to parse numeric value
+                try:
+                    # Clean the value for parsing
+                    clean_value = re.sub(r'[^\d.,\-]', '', value_str)
+                    # Handle European format (1.234,56 -> 1234.56)
+                    if ',' in clean_value and '.' in clean_value:
+                        if clean_value.rfind(',') > clean_value.rfind('.'):
+                            clean_value = clean_value.replace('.', '').replace(',', '.')
+                        else:
+                            clean_value = clean_value.replace(',', '')
+                    else:
+                        clean_value = clean_value.replace(',', '')
+                    numeric = float(clean_value) if clean_value else 0.0
+                except ValueError:
+                    numeric = 0.0
+
+                # Determine tag based on context
+                final_tag = default_tag
+                context_lower = context.lower()
+
+                for tag, keywords in context_tags.items():
+                    if any(kw in context_lower for kw in keywords):
+                        # Context keyword found - upgrade confidence and possibly change tag
+                        if default_tag in ['integer', 'decimal', 'quantity']:
+                            final_tag = tag
+                            confidence = 'high' if confidence == 'medium' else confidence
+                        break
+
+                extracted.append(ExtractedValue(
+                    value=value_str,
+                    numeric_value=numeric,
+                    tag=final_tag,
+                    context=context,
+                    confidence=confidence
+                ))
+
+        # Sort by position in text (using context as proxy) and remove low-confidence duplicates
+        # Keep higher confidence matches when values overlap
+        filtered = []
+        for ev in extracted:
+            # Skip low confidence integers that are likely noise (very short numbers)
+            if ev.tag == 'integer' and ev.confidence == 'low' and ev.numeric_value < 10:
+                continue
+            filtered.append(ev)
+
+        return filtered
 
     @property
     def converter(self) -> DocumentConverter:
@@ -202,6 +326,53 @@ class PDFProcessor:
                     df.to_csv(csv_path, index=False)
                     output_files.append(str(csv_path))
 
+            # If no tables found, extract numeric values from text
+            extracted_values_count = 0
+            if table_count == 0 and options.extract_values:
+                if progress_callback:
+                    progress_callback("No tables found, extracting numeric values...", 70)
+
+                # Get the full text content
+                text_content = doc.export_to_markdown()
+                extracted_values = self._extract_numeric_values(text_content)
+
+                if extracted_values:
+                    extracted_values_count = len(extracted_values)
+
+                    # Export to JSON
+                    values_data = [
+                        {
+                            "value": ev.value,
+                            "numeric_value": ev.numeric_value,
+                            "tag": ev.tag,
+                            "context": ev.context,
+                            "confidence": ev.confidence
+                        }
+                        for ev in extracted_values
+                    ]
+                    values_json_path = output_folder / f"{base_name}_extracted_values.json"
+                    with open(values_json_path, "w", encoding="utf-8") as f:
+                        json.dump(values_data, f, indent=4, ensure_ascii=False)
+                    output_files.append(str(values_json_path))
+
+                    # Also export to CSV for easy viewing
+                    values_df = pd.DataFrame(values_data)
+                    values_csv_path = output_folder / f"{base_name}_extracted_values.csv"
+                    values_df.to_csv(values_csv_path, index=False)
+                    output_files.append(str(values_csv_path))
+
+                    # Export to Excel with summary
+                    values_xlsx_path = output_folder / f"{base_name}_extracted_values.xlsx"
+                    with pd.ExcelWriter(values_xlsx_path, engine='openpyxl') as writer:
+                        values_df.to_excel(writer, sheet_name='All Values', index=False)
+                        # Create summary by tag
+                        summary = values_df.groupby('tag').agg({
+                            'numeric_value': ['count', 'sum', 'mean', 'min', 'max']
+                        }).round(2)
+                        summary.columns = ['Count', 'Sum', 'Average', 'Min', 'Max']
+                        summary.to_excel(writer, sheet_name='Summary by Tag')
+                    output_files.append(str(values_xlsx_path))
+
             if progress_callback:
                 progress_callback("Extracting pictures...", 80)
 
@@ -283,13 +454,21 @@ class PDFProcessor:
             if hasattr(doc, 'pages'):
                 page_count = len(list(doc.pages))
 
+            # Build informative message
+            message = f"Successfully processed {file_path.name}"
+            if table_count == 0 and extracted_values_count > 0:
+                message += f" (no tables found, extracted {extracted_values_count} numeric values)"
+            elif table_count == 0:
+                message += " (no tables or numeric values found)"
+
             return ProcessingResult(
                 success=True,
-                message=f"Successfully processed {file_path.name}",
+                message=message,
                 output_files=output_files,
                 table_count=table_count,
                 page_count=page_count,
-                picture_count=picture_count
+                picture_count=picture_count,
+                extracted_values_count=extracted_values_count
             )
 
         except Exception as e:
