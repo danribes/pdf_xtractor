@@ -39,8 +39,9 @@ Download the latest release for your platform from the [Releases page](https://g
 ### Windows - Installer (Recommended)
 
 1. Download `PDF_Extractor_Setup_x.x.x.exe` from the [latest release](https://github.com/danribes/pdf_xtractor/releases/latest)
-2. Run the installer and follow the setup wizard
-3. Launch **PDF Extractor** from the Start Menu or desktop shortcut
+2. Run the installer (if Windows SmartScreen appears, click **"More info"** → **"Run anyway"**)
+3. Follow the setup wizard
+4. Launch **PDF Extractor** from the Start Menu or desktop shortcut
 
 ### Windows - Portable Version
 
@@ -49,6 +50,9 @@ The portable version requires no installation and can run from any folder or USB
 1. Download `PDF_Extractor_Portable.zip` from the [latest release](https://github.com/danribes/pdf_xtractor/releases/latest)
 2. Extract the zip file to any folder (e.g., `C:\Apps\PDF Extractor\`)
 3. Double-click `PDF Extractor.exe` to run the application
+4. **First run only**: If Windows SmartScreen shows "Windows protected your PC":
+   - Click **"More info"**
+   - Click **"Run anyway"**
 
 > **Important**: Keep the `_internal` folder in the same location as `PDF Extractor.exe` - the application needs it to run.
 
