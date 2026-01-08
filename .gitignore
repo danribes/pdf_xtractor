@@ -17,6 +17,7 @@ dist/
 # PyInstaller build output (but keep build/ config files)
 build/*.bak
 build/PDF*/
+build/pdfextractor/
 
 # PyInstaller
 *.manifest

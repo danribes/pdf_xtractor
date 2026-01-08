@@ -44,11 +44,11 @@ jobs:
           path: build/installer_windows.iss
           options: /O"dist"
 
-      - name: Upload Windows executable
+      - name: Upload Windows portable folder
         uses: actions/upload-artifact@v4
         with:
-          name: windows-exe
-          path: dist/PDF Extractor.exe
+          name: windows-portable
+          path: dist/PDF Extractor/
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
@@ -187,9 +187,8 @@ jobs:
 
       - name: Create portable zip
         run: |
-          cd "artifacts/windows-exe"
-          mv "PDF Extractor.exe" "PDF_Extractor_Portable.exe" || true
-          zip -9 "PDF_Extractor_Portable.zip" "PDF_Extractor_Portable.exe"
+          cd "artifacts/windows-portable"
+          zip -r -9 "../PDF_Extractor_Portable.zip" "."
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -197,7 +196,7 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            artifacts/windows-exe/PDF_Extractor_Portable.zip
+            artifacts/PDF_Extractor_Portable.zip
             artifacts/windows-installer/*.exe
             artifacts/macos-dmg/*.dmg
             artifacts/macos-arm-dmg/*.dmg

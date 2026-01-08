@@ -37,7 +37,7 @@ is_mac = sys.platform == 'darwin'
 
 # Application info
 APP_NAME = 'PDF Extractor'
-APP_VERSION = '1.0.8'
+APP_VERSION = '1.0.10'
 BUNDLE_ID = 'com.pdfextractor.app'
 
 # Runtime hooks directory
@@ -262,16 +262,14 @@ if is_mac:
     )
 
 else:
-    # ============ Windows Build ============
+    # ============ Windows Build (folder-based for faster startup) ============
     icon_path = ASSETS_DIR / 'icon.ico'
 
     exe = EXE(
         pyz,
         a.scripts,
-        a.binaries,
-        a.zipfiles,
-        a.datas,
         [],
+        exclude_binaries=True,  # Binaries collected separately for folder mode
         name=APP_NAME,
         debug=False,
         bootloader_ignore_signals=False,
@@ -287,4 +285,16 @@ else:
         entitlements_file=None,
         icon=str(icon_path) if icon_path.exists() else None,
         version=str(ROOT_DIR / 'build' / 'version_info.txt') if (ROOT_DIR / 'build' / 'version_info.txt').exists() else None,
+    )
+
+    # Collect all files into a folder
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.zipfiles,
+        a.datas,
+        strip=False,
+        upx=True,
+        upx_exclude=[],
+        name=APP_NAME,
     )
