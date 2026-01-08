@@ -175,26 +175,32 @@ class PDFProcessor:
             # Export tables to CSV/Excel
             table_count = 0
             tables = list(doc.tables) if hasattr(doc, 'tables') else []
+            table_dataframes = []  # Collect dataframes for combined export
 
             for i, table in enumerate(tables):
                 try:
                     # Pass doc argument to avoid deprecation warning
                     df = table.export_to_dataframe(doc=doc)
-
-                    if options.csv:
-                        csv_path = output_folder / f"{base_name}_table_{i+1}.csv"
-                        df.to_csv(csv_path, index=False)
-                        output_files.append(str(csv_path))
-
-                    if options.excel:
-                        xlsx_path = output_folder / f"{base_name}_table_{i+1}.xlsx"
-                        df.to_excel(xlsx_path, index=False)
-                        output_files.append(str(xlsx_path))
-
+                    table_dataframes.append((f"Table_{i+1}", df))
                     table_count += 1
                 except Exception as e:
                     # Continue processing other tables if one fails
                     print(f"Warning: Could not export table {i}: {e}")
+
+            # Export all tables to a single Excel file with multiple sheets
+            if options.excel and table_dataframes:
+                xlsx_path = output_folder / f"{base_name}_tables.xlsx"
+                with pd.ExcelWriter(xlsx_path, engine='openpyxl') as writer:
+                    for sheet_name, df in table_dataframes:
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                output_files.append(str(xlsx_path))
+
+            # Export tables to individual CSV files (CSV doesn't support multiple sheets)
+            if options.csv and table_dataframes:
+                for sheet_name, df in table_dataframes:
+                    csv_path = output_folder / f"{base_name}_{sheet_name.lower()}.csv"
+                    df.to_csv(csv_path, index=False)
+                    output_files.append(str(csv_path))
 
             if progress_callback:
                 progress_callback("Extracting pictures...", 80)

@@ -82,6 +82,9 @@ class DropZone(QFrame):
                     border: 3px dashed #2196f3;
                     border-radius: 10px;
                 }
+                DropZone QLabel {
+                    color: #333333;
+                }
             """)
         else:
             self.setStyleSheet("""
@@ -93,6 +96,9 @@ class DropZone(QFrame):
                 DropZone:hover {
                     background-color: #eeeeee;
                     border-color: #999999;
+                }
+                DropZone QLabel {
+                    color: #333333;
                 }
             """)
 
@@ -215,6 +221,7 @@ class MainWindow(QMainWindow):
         self.folder_label = QLabel(self.output_folder)
         self.folder_label.setStyleSheet("""
             background-color: #f0f0f0;
+            color: #333333;
             padding: 8px;
             border-radius: 4px;
         """)
