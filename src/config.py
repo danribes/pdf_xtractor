@@ -25,36 +25,61 @@ def _patch_symlinks_for_windows():
     if sys.platform != "win32":
         return
 
+    import time
     original_symlink = os.symlink
 
     def symlink_or_copy(src, dst, target_is_directory=False, *, dir_fd=None):
         """Replace symlink with copy on Windows to avoid privilege errors."""
         try:
-            # First try the original symlink (works if user has privileges)
             original_symlink(src, dst, target_is_directory, dir_fd=dir_fd)
         except OSError as e:
-            if e.winerror == 1314:  # ERROR_PRIVILEGE_NOT_HELD
-                # Fall back to copying the file/directory
-                src_path = Path(src) if not os.path.isabs(src) else Path(src)
-                dst_path = Path(dst)
-
-                # Handle relative symlinks (HuggingFace uses these)
-                if not src_path.is_absolute():
-                    src_path = dst_path.parent / src_path
-
-                try:
-                    if src_path.is_dir():
-                        if dst_path.exists():
-                            shutil.rmtree(dst_path)
-                        shutil.copytree(src_path, dst_path)
-                    else:
-                        dst_path.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(src_path, dst_path)
-                except Exception:
-                    # If copy also fails, raise the original error
-                    raise e
-            else:
+            if getattr(e, 'winerror', None) != 1314:  # Not ERROR_PRIVILEGE_NOT_HELD
                 raise
+
+            # Convert to Path objects for easier handling
+            dst_path = Path(dst)
+            src_path = Path(src)
+
+            # Resolve relative symlinks (HuggingFace uses paths like "../../blobs/xxx")
+            if not src_path.is_absolute():
+                src_path = (dst_path.parent / src_path).resolve()
+            else:
+                src_path = src_path.resolve()
+
+            # Ensure destination parent directory exists
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Remove existing destination if present
+            if dst_path.exists() or dst_path.is_symlink():
+                if dst_path.is_dir() and not dst_path.is_symlink():
+                    shutil.rmtree(dst_path)
+                else:
+                    dst_path.unlink()
+
+            # Wait briefly for source file if it doesn't exist yet (race condition)
+            if not src_path.exists():
+                for _ in range(10):
+                    time.sleep(0.1)
+                    if src_path.exists():
+                        break
+
+            if not src_path.exists():
+                raise FileNotFoundError(
+                    f"Source file not found for symlink fallback: {src_path}"
+                ) from e
+
+            # Try hardlink first (works without admin on same volume, no space usage)
+            try:
+                os.link(src_path, dst_path)
+                return
+            except OSError:
+                pass  # Hardlink failed, fall back to copy
+
+            # Fall back to file copy
+            if src_path.is_dir():
+                shutil.copytree(src_path, dst_path)
+            else:
+                shutil.copy2(src_path, dst_path)
 
     os.symlink = symlink_or_copy
 
@@ -153,6 +178,6 @@ def setup_docling_cache():
 
 # Application metadata
 APP_NAME = "PDF Extractor"
-APP_VERSION = "1.0.8"
+APP_VERSION = "1.0.11"
 APP_AUTHOR = "Dan Ribes"
 APP_IDENTIFIER = "com.pdfextractor.app"
